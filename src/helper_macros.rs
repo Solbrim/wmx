@@ -30,7 +30,7 @@ macro_rules! unwrap_or_stfu {
         match $i {
             Ok(x) => x,
             Err(_) => {
-                return Err(format!("Failed to unwrap {} -- it contained an Error", $name));
+                return Err(StringError::anyhow(format!("Failed to unwrap {} -- it contained an Error", $name)));
             },
         }
     }
@@ -42,7 +42,7 @@ macro_rules! unwrap_win {
         match $i {
             Ok(x) => x,
             Err(e) => {
-                return Err(format!("Failed to unwrap {} -- it contained an Error: {}", $name, e.message().to_string_lossy()));
+                return Err(StringError::anyhow(format!("Failed to unwrap {} -- it contained an Error: {}", $name, e.message().to_string_lossy())));
             },
         }
     }

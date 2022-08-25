@@ -14,10 +14,9 @@ use windows::Win32::System::Com::{CLSCTX_ALL};
 use core::ffi::c_void;
 use windows::Win32::UI::Shell::PropertiesSystem::PROPERTYKEY;
 use windows::Win32::Devices::FunctionDiscovery::{ PKEY_DeviceInterface_FriendlyName };
-use std::iter::Enumerate;
 use crate::misc_defs::*;
 
-pub fn device_name (device: &IMMDevice) -> SimpleResult<String> {
+pub fn device_name (device: &IMMDevice) -> anyhow::Result<String> {
     let device_store = unwrap_or_stfu!(unsafe { device.OpenPropertyStore(STGM_READ) }, "device_store");
     let device_store_value: *const PROPERTYKEY = &PKEY_DeviceInterface_FriendlyName;
     let device_name: PROPVARIANT = unwrap_or_stfu!(unsafe { device_store.GetValue(device_store_value) }, "device_name");
@@ -25,7 +24,7 @@ pub fn device_name (device: &IMMDevice) -> SimpleResult<String> {
     Ok(device_name_to_str)
 }
 
-pub fn devices () -> SimpleResult<IMMDeviceEnumerator> {
+pub fn devices () -> anyhow::Result<IMMDeviceEnumerator> {
     let null_ptr: *const c_void = std::ptr::null();
 
     let imm_device_enum_init = unsafe {
@@ -79,13 +78,13 @@ impl Iterator for SessionIterator {
     }
 }
 
-pub fn default_device () -> SimpleResult<IMMDevice> {
+pub fn default_device () -> anyhow::Result<IMMDevice> {
     let devices = unwrap_or_stfu!(devices(), "devices");
     let device = unwrap_or_stfu!(unsafe {devices.GetDefaultAudioEndpoint(eRender, eMultimedia)}, "default_device");
     return Ok(device);
 }
 
-pub fn devices_to_vec (devices_enum: &IMMDeviceEnumerator) -> SimpleResult<Vec<IMMDevice>> {
+pub fn devices_to_vec (devices_enum: &IMMDeviceEnumerator) -> anyhow::Result<Vec<IMMDevice>> {
     let devices: IMMDeviceCollection = unwrap_or_stfu!(unsafe {
         devices_enum.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)
     }, "device_collection");
@@ -99,23 +98,23 @@ pub fn devices_to_vec (devices_enum: &IMMDeviceEnumerator) -> SimpleResult<Vec<I
     return Ok(res);
 }
 
-pub fn session_iden (sess2: &IAudioSessionControl2) -> SimpleResult<String> {
+pub fn session_iden (sess2: &IAudioSessionControl2) -> anyhow::Result<String> {
     let sess_iden = unwrap_or_stfu! (unsafe { sess2.GetSessionIdentifier() }, "sess_iden");
     let sess_iden_str = unwrap_or_stfu!(unsafe { sess_iden.to_string() }, "sess_iden_str");
     return Ok(sess_iden_str);
 }
 
-pub fn session_group (sess2: &IAudioSessionControl2) -> SimpleResult<GUID> {
+pub fn session_group (sess2: &IAudioSessionControl2) -> anyhow::Result<GUID> {
     let sess_group = unwrap_or_stfu!(unsafe { sess2.GetGroupingParam() }, "sess_grouping");
     return Ok(sess_group);
 }
 
-pub fn session_matches (input: &String, sess2: &IAudioSessionControl2) -> SimpleResult<bool> {
+pub fn session_matches (input: &String, sess2: &IAudioSessionControl2) -> anyhow::Result<bool> {
     let iden = unwrap_or_stfu!(session_iden(sess2), "iden");
     return Ok(iden.to_lowercase().contains(input.to_lowercase().as_str()));
 }
 
-pub fn sessions (device: &IMMDevice) -> SimpleResult<IAudioSessionEnumerator> {
+pub fn sessions (device: &IMMDevice) -> anyhow::Result<IAudioSessionEnumerator> {
     let prop_var_null: *const PROPVARIANT = core::ptr::null();
     let audio_session_mgr_2: IAudioSessionManager2 = unwrap_or_stfu!(unsafe { device.Activate(CLSCTX_ALL, prop_var_null) }, "audio_session_mgr_result");
     let sess_enum = unwrap_or_stfu!(unsafe { audio_session_mgr_2.GetSessionEnumerator() }, "sess_enum_result");
@@ -135,12 +134,13 @@ pub fn unmute_session (sess2: &IAudioSessionControl2) {
     let sess_grouping = unwrap_or_return!(session_group(&sess2), "sess_grouping");
     let sess_grouping_ptr: *const GUID = &sess_grouping as *const GUID;
     
+
     unwrap_or_return!(unsafe {simp.SetMute(false, sess_grouping_ptr)}, "mute");
 }
 
-pub fn set_device_volume(device: &IMMDevice, volume: f32) -> SimpleResult<()> {
+pub fn set_device_volume(device: &IMMDevice, volume: f32) -> anyhow::Result<()> {
     if volume > 1.0 || volume < 0.0 {
-        return Err(format!("Volume must be between 0.0 and 1.0; received {}", volume));
+        return Err(StringError::anyhow(format!("Volume must be between 0.0 and 1.0; received {}", volume)));
     }
     let prop_var_null: *const PROPVARIANT = core::ptr::null();
     let endpoint_vol: IAudioEndpointVolume = unwrap_or_stfu!(unsafe {device.Activate(CLSCTX_ALL, prop_var_null) }, "IAudioEndpointVolume");
@@ -150,7 +150,7 @@ pub fn set_device_volume(device: &IMMDevice, volume: f32) -> SimpleResult<()> {
     Ok(())
 }
 
-pub fn get_device_volume(device: &IMMDevice) -> SimpleResult<f32> {
+pub fn get_device_volume(device: &IMMDevice) -> anyhow::Result<f32> {
 
     let prop_var_null: *const PROPVARIANT = core::ptr::null();
     let endpoint_vol: IAudioEndpointVolume = unwrap_or_stfu!(unsafe {device.Activate(CLSCTX_ALL, prop_var_null) }, "IAudioEndpointVolume");
@@ -161,9 +161,9 @@ pub fn get_device_volume(device: &IMMDevice) -> SimpleResult<f32> {
 
 /// sets the volume for the session, e.g. firefox
 /// see https://docs.microsoft.com/en-us/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume for setting a device volume
-pub fn set_session_volume(sess2: &IAudioSessionControl2, volume: f32) -> SimpleResult<()> {
+pub fn set_session_volume(sess2: &IAudioSessionControl2, volume: f32) -> anyhow::Result<()> {
     if volume > 1.0 || volume < 0.0 {
-        return Err(format!("Volume must be between 0.0 and 1.0; received {}", volume));
+        return Err(StringError::anyhow(format!("Volume must be between 0.0 and 1.0; received {}", volume)));
     }
 
     let simp: ISimpleAudioVolume = sess2.cast().unwrap();
@@ -175,7 +175,7 @@ pub fn set_session_volume(sess2: &IAudioSessionControl2, volume: f32) -> SimpleR
     Ok(())
 }
 
-pub fn get_session_volume(sess2: &IAudioSessionControl2) -> SimpleResult<f32> {
+pub fn get_session_volume(sess2: &IAudioSessionControl2) -> anyhow::Result<f32> {
     let simp: ISimpleAudioVolume = sess2.cast().unwrap();
 
     let vol = unwrap_or_stfu!(unsafe {simp.GetMasterVolume()}, "get_master_volume");
