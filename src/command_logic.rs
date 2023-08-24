@@ -14,7 +14,7 @@ pub fn eq_logic (_: EqArgs) {
         set_session_volume(&sess, 1.0).unwrap();
     }
     
-    println!("{} sound sessions equalized for {}.", sess_iter_size, device_name);
+    println!("{} sound sessions equalized for {}.", sess_iter_size, device_name);g
 }
 
 pub fn mute_logic (args: MuteArgs) {

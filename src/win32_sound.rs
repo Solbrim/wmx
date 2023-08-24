@@ -104,6 +104,12 @@ pub fn session_iden (sess2: &IAudioSessionControl2) -> anyhow::Result<String> {
     return Ok(sess_iden_str);
 }
 
+pub fn session_display (sess2: &IAudioSessionControl2) -> anyhow::Result<String> {
+    let sess_iden = unwrap_or_stfu! (unsafe { sess2.GetDisplayName() }, "sess_iden");
+    let sess_iden_str = unwrap_or_stfu!(unsafe { sess_iden.to_string() }, "sess_iden_str");
+    return Ok(sess_iden_str);
+}
+
 pub fn session_group (sess2: &IAudioSessionControl2) -> anyhow::Result<GUID> {
     let sess_group = unwrap_or_stfu!(unsafe { sess2.GetGroupingParam() }, "sess_grouping");
     return Ok(sess_group);
